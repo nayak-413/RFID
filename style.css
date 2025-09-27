@@ -1,0 +1,127 @@
+/* * Custom Styles for RFID Asset Tracking System 
+ * Applies a sharp, professional, and interactive aesthetic.
+ * All border-radius properties are set to 0 to meet the requirement.
+ */
+
+:root {
+  --color-primary: #007bff; /* A clean blue for primary actions */
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+  --color-background: #f8f9fa; /* Light grey/white background */
+  --color-surface: #ffffff; /* White surface for cards */
+  --color-border: #dee2e6; /* Light grey border */
+}
+
+/* Global resets for a sharp look */
+* {
+  border-radius: 0 !important;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: var(--color-background);
+}
+
+/* --- Spinner Styles (Moved from HTML) --- */
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-top: 4px solid #10b981; /* Emerald 500 */
+  border-radius: 50% !important; /* Keep spinner round */
+  width: 24px;
+  height: 24px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Scrollbar Styles (Moved from HTML) --- */
+.scroll-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-border); /* Explicit border for the container */
+  scrollbar-width: thin;
+  scrollbar-color: #adb5bd #f1f5f9;
+}
+
+.scroll-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-container::-webkit-scrollbar-thumb {
+  background-color: #adb5bd;
+}
+
+/* --- Table Specific Styling (Classy Look) --- */
+
+.asset-table {
+  border-collapse: collapse;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); /* Soft shadow for depth */
+}
+
+.asset-table thead {
+  background-color: #e9ecef; /* Light header background */
+}
+
+.asset-table th {
+  border-bottom: 2px solid var(--color-border);
+  font-weight: 600;
+  color: #495057;
+}
+
+.asset-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.asset-table tbody tr:hover {
+  background-color: #f1f3f5; /* Light hover interaction */
+}
+
+.asset-table td {
+  border-bottom: 1px solid #f8f9fa; /* Very subtle line between rows */
+  background-color: var(--color-surface);
+}
+
+/* Ensure buttons have a sharp look */
+button,
+input[type="text"],
+select {
+  border-radius: 0 !important;
+}
+
+/* Enhance form focus states for interactivity */
+input:focus,
+select:focus {
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25) !important;
+  border-color: var(--color-primary) !important;
+}
+
+/* Style for action buttons (delete icon and Bulk Scan ID links) */
+.action-button {
+  color: var(--color-danger);
+  padding: 0.25rem;
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.action-button:hover {
+  color: #a71d2a;
+  transform: scale(1.1);
+}
+
+.tag-link {
+  cursor: pointer;
+  color: var(--color-primary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.tag-link:hover {
+  color: #0056b3;
+}
