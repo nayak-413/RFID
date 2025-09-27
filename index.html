@@ -1,1356 +1,975 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RFID Asset Tracking System</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons for aesthetic UI -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- LINK TO CUSTOM STYLESHEET -->
-    <link rel="stylesheet" href="./style.css" />
-  </head>
-  <body class="p-4 md:p-8">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body class="p-4 md:p-8">
+
     <div id="app" class="max-w-7xl mx-auto">
-      <header class="mb-8 p-6 bg-white shadow-xl rounded-none">
-        <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
-          <i data-lucide="scan-line" class="w-8 h-8 mr-3 text-emerald-500"></i>
-          Asset Tracker (RFID Simulation)
-        </h1>
-        <p class="text-sm text-gray-500 mt-1">
-          Real-time tracking powered by Google Firestore. Your User ID:
-          <span
-            id="user-id"
-            class="font-mono text-xs bg-gray-100 p-1 rounded-none"
-            >Loading...</span
-          >
-        </p>
-      </header>
+        <header class="mb-8 p-6 bg-white shadow-xl rounded-none">
+            <h1 class="text-3xl font-extrabold text-gray-800 flex items-center">
+                <i data-lucide="scan-line" class="w-8 h-8 mr-3 text-emerald-500"></i>
+                Asset Tracker (RFID Simulation)
+            </h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Real-time tracking powered by Google Firestore. Your User ID: <span id="user-id" class="font-mono text-xs bg-gray-100 p-1 rounded-none">Loading...</span>
+            </p>
+        </header>
 
-      <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- 1. Scanner Panel (Sticky on Left - ONLY ON LARGE SCREENS) -->
-        <div
-          class="lg:col-span-1 p-6 bg-white shadow-xl rounded-none h-fit lg:sticky lg:top-8"
-        >
-          <h2
-            class="text-xl font-semibold mb-4 text-gray-700 flex items-center"
-          >
-            <i
-              data-lucide="fingerprint"
-              class="w-5 h-5 mr-2 text-indigo-500"
-            ></i>
-            Scan Control
-          </h2>
-          <div class="space-y-4">
-            <div
-              class="p-3 bg-indigo-50 border-l-4 border-indigo-400 rounded-none text-sm text-indigo-700"
-            >
-              **BULK MODE:** Scan multiple tags (IDs will appear in the box).
-              Then click **Process Scan** to load the list of assets.
-            </div>
-            <div>
-              <label
-                for="rfidInput"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >RFID Tag IDs (Scan here / Paste list)</label
-              >
-              <!-- Input is now a textarea for bulk entry -->
-              <textarea
-                id="rfidInput"
-                rows="3"
-                placeholder="Waiting for connection... Scan or paste multiple IDs separated by spaces or new lines."
-                class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 bg-gray-100"
-                required
-                disabled
-              ></textarea>
-            </div>
-            <div>
-              <label
-                for="scanLocation"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Update To Location (Optional Bulk Movement)</label
-              >
-              <select
-                id="scanLocation"
-                class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-              >
-                <option value="No Update Selected">
-                  -- Select New Location to Update (Bulk Update) --
-                </option>
-                <option value="Warehouse - A1">
-                  Warehouse - A1 (Check-In)
-                </option>
-                <option value="Deployed - Office 305">
-                  Deployed - Office 305 (Check-Out)
-                </option>
-                <option value="Maintenance Bay">Maintenance Bay</option>
-                <option value="Scrapped">Scrapped</option>
-              </select>
-            </div>
-            <!-- Button renamed and functionality changed to process bulk list -->
-            <button
-              onclick="window.processBulkScan()"
-              id="scanButton"
-              class="w-full py-3 px-4 bg-indigo-600 text-white font-bold rounded-none hover:bg-indigo-700 cursor-not-allowed flex items-center justify-center mb-3"
-              disabled
-            >
-              <div
-                class="spinner mr-2 w-5 h-5 border-white border-t-indigo-600"
-              ></div>
-              Connecting...
-            </button>
-            <!-- Utility Buttons -->
-            <div class="flex space-x-3">
-              <button
-                onclick="window.seedSampleData()"
-                id="seedButton"
-                class="w-full py-3 px-4 bg-emerald-600 text-white font-bold rounded-none hover:bg-emerald-700 transition duration-150 flex items-center justify-center"
-              >
-                <i data-lucide="database" class="w-5 h-5 mr-2"></i> Load Sample
-                Data
-              </button>
-              <!-- Delete All Button -->
-              <button
-                onclick="window.deleteAllAssets()"
-                id="deleteAllButton"
-                class="w-full py-3 px-4 bg-red-600 text-white font-bold rounded-none hover:bg-red-700 transition duration-150 flex items-center justify-center"
-              >
-                <i data-lucide="x-circle" class="w-5 h-5 mr-2"></i> Delete All
-                Assets
-              </button>
-            </div>
-            <div
-              id="messageBox"
-              class="p-3 text-sm rounded-none transition-opacity duration-300 opacity-0"
-              style="height: 36px"
-            ></div>
-          </div>
-        </div>
-
-        <!-- 2. Asset List Panel (Bulk Report + Primary List) -->
-        <div class="lg:col-span-2 space-y-8">
-          <!-- NEW: Bulk Scan Results Container (Initially Hidden) -->
-          <div
-            id="bulkResultsContainer"
-            class="bg-white shadow-xl rounded-none p-6 hidden"
-          >
-            <h2
-              class="text-xl font-semibold mb-4 text-gray-700 flex items-center"
-            >
-              <i
-                data-lucide="list-checks"
-                class="w-5 h-5 mr-2 text-indigo-500"
-              ></i>
-              Bulk Scan Report (<span id="bulkTotalCount">0</span> Tags Scanned)
-            </h2>
-            <div
-              class="p-3 mb-4 text-sm bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-none"
-            >
-              <span
-                id="bulkUpdateStatus"
-                class="font-semibold block mt-1"
-              ></span>
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 1. Scanner Panel (Sticky on Left - ONLY ON LARGE SCREENS) -->
+            <div class="lg:col-span-1 p-6 bg-white shadow-xl rounded-none h-fit lg:sticky lg:top-8">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                    <i data-lucide="fingerprint" class="w-5 h-5 mr-2 text-indigo-500"></i>
+                    Scan Control
+                </h2>
+                <div class="space-y-4">
+                    <div class="p-3 bg-indigo-50 border-l-4 border-indigo-400 rounded-none text-sm text-indigo-700">
+                        **BULK MODE:** Scan multiple tags (IDs will appear in the box). Then click **Process Scan** to load the list of assets.
+                    </div>
+                    <div>
+                        <label for="rfidInput" class="block text-sm font-medium text-gray-700 mb-1">RFID Tag IDs (Scan here / Paste list)</label>
+                        <!-- Input is now a textarea for bulk entry -->
+                        <textarea id="rfidInput" rows="3" placeholder="Waiting for connection... Scan or paste multiple IDs separated by spaces or new lines." class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 bg-gray-100" required disabled></textarea>
+                    </div>
+                    <div>
+                        <label for="scanLocation" class="block text-sm font-medium text-gray-700 mb-1">Update To Location (Optional Bulk Movement)</label>
+                        <select id="scanLocation" class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                            <option value="No Update Selected">-- Select New Location to Update (Bulk Update) --</option>
+                            <option value="Warehouse - A1">Warehouse - A1 (Check-In)</option>
+                            <option value="Deployed - Office 305">Deployed - Office 305 (Check-Out)</option>
+                            <option value="Maintenance Bay">Maintenance Bay</option>
+                            <option value="Scrapped">Scrapped</option>
+                        </select>
+                    </div>
+                    <!-- Button renamed and functionality changed to process bulk list -->
+                    <button onclick="window.processBulkScan()" id="scanButton" class="w-full py-3 px-4 bg-indigo-600 text-white font-bold rounded-none hover:bg-indigo-700 cursor-not-allowed flex items-center justify-center mb-3" disabled>
+                        <div class="spinner mr-2 w-5 h-5 border-white border-t-indigo-600"></div>
+                        Connecting...
+                    </button>
+                    <!-- Utility Buttons -->
+                    <div class="flex space-x-3">
+                        <button onclick="window.seedSampleData()" id="seedButton" class="w-full py-3 px-4 bg-emerald-600 text-white font-bold rounded-none hover:bg-emerald-700 transition duration-150 flex items-center justify-center">
+                            <i data-lucide="database" class="w-5 h-5 mr-2"></i> Load Sample Data
+                        </button>
+                        <!-- Delete All Button -->
+                        <button onclick="window.deleteAllAssets()" id="deleteAllButton" class="w-full py-3 px-4 bg-red-600 text-white font-bold rounded-none hover:bg-red-700 transition duration-150 flex items-center justify-center">
+                            <i data-lucide="x-circle" class="w-5 h-5 mr-2"></i> Delete All Assets
+                        </button>
+                    </div>
+                    <div id="messageBox" class="p-3 text-sm rounded-none transition-opacity duration-300 opacity-0" style="height: 36px;"></div>
+                </div>
             </div>
 
-            <div class="scroll-container max-h-[60vh]">
-              <table class="min-w-full divide-y divide-gray-200 asset-table">
-                <thead class="sticky top-0">
-                  <tr>
-                    <th
-                      class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
-                    >
-                      Tag ID
-                    </th>
-                    <th
-                      class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4"
-                    >
-                      Asset Name
-                    </th>
-                    <th
-                      class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
-                    >
-                      Status
-                    </th>
-                    <th
-                      class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5"
-                    >
-                      New Location
-                    </th>
-                    <th
-                      class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12"
-                    >
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="bulkResultsTableBody">
-                  <!-- Results injected here -->
-                </tbody>
-              </table>
-            </div>
+            <!-- 2. Asset List Panel (Bulk Report + Primary List) -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- NEW: Bulk Scan Results Container (Initially Hidden) -->
+                <div id="bulkResultsContainer" class="bg-white shadow-xl rounded-none p-6 hidden">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                        <i data-lucide="list-checks" class="w-5 h-5 mr-2 text-indigo-500"></i>
+                        Bulk Scan Report (<span id="bulkTotalCount">0</span> Tags Scanned)
+                    </h2>
+                    <div class="p-3 mb-4 text-sm bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-none">
+                        <span id="bulkUpdateStatus" class="font-semibold block mt-1"></span>
+                    </div>
 
-            <button
-              onclick="window.clearBulkResults()"
-              class="mt-4 py-2 px-4 bg-gray-500 text-white font-semibold hover:bg-gray-600"
-            >
-              <i data-lucide="chevrons-left" class="w-4 h-4 mr-2 inline"></i>
-              Return to Full Asset List
-            </button>
-          </div>
+                    <div class="scroll-container max-h-[60vh]">
+                        <table class="min-w-full divide-y divide-gray-200 asset-table">
+                            <thead class="sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">Tag ID</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Asset Name</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">Status</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">New Location</th>
+                                    <th class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulkResultsTableBody">
+                                <!-- Results injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <button onclick="window.clearBulkResults()" class="mt-4 py-2 px-4 bg-gray-500 text-white font-semibold hover:bg-gray-600">
+                        <i data-lucide="chevrons-left" class="w-4 h-4 mr-2 inline"></i> Return to Full Asset List
+                    </button>
+                </div>
 
-          <!-- PRIMARY ASSET LIST (Always visible) -->
-          <div
-            id="primaryAssetList"
-            class="bg-white shadow-xl rounded-none p-6"
-          >
-            <h2
-              class="text-xl font-semibold mb-4 text-gray-700 flex items-center"
-            >
-              <i
-                data-lucide="package"
-                class="w-5 h-5 mr-2 text-emerald-500"
-              ></i>
-              All Tracked Assets (<span id="assetCount">0</span>)
-            </h2>
-            <div class="scroll-container rounded-none">
-              <table class="min-w-full divide-y divide-gray-200 asset-table">
-                <thead class="sticky top-0">
-                  <tr>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Asset Name
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell"
-                    >
-                      RFID Tag
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Location / Status
-                    </th>
-                    <th
-                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell"
-                    >
-                      Last Scan
-                    </th>
-                    <th
-                      class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="assetTableBody" class="divide-y divide-gray-100">
-                  <!-- Asset rows will be injected here by JavaScript -->
-                  <tr>
-                    <td
-                      colspan="5"
-                      class="p-4 text-center text-gray-500"
-                      id="initialLoadingMessage"
-                    >
-                      <div class="flex justify-center items-center">
-                        <div class="spinner mr-2"></div>
-                        Connecting to Firebase...
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+
+                <!-- PRIMARY ASSET LIST (Always visible) -->
+                <div id="primaryAssetList" class="bg-white shadow-xl rounded-none p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-700 flex items-center">
+                        <i data-lucide="package" class="w-5 h-5 mr-2 text-emerald-500"></i>
+                        All Tracked Assets (<span id="assetCount">0</span>)
+                    </h2>
+                    <div class="scroll-container rounded-none">
+                        <table class="min-w-full divide-y divide-gray-200 asset-table">
+                            <thead class="sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Asset Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">RFID Tag</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location / Status</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Last Scan</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assetTableBody" class="divide-y divide-gray-100">
+                                <!-- Asset rows will be injected here by JavaScript -->
+                                <tr>
+                                    <td colspan="5" class="p-4 text-center text-gray-500" id="initialLoadingMessage">
+                                        <div class="flex justify-center items-center">
+                                            <div class="spinner mr-2"></div> Connecting to Firebase...
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
-          </div>
-        </div>
-      </main>
+        </main>
     </div>
 
     <!-- Modal for New Asset Registration -->
-    <div
-      id="registrationModal"
-      class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50 transition-opacity duration-300"
-    >
-      <div
-        class="bg-white p-6 rounded-none shadow-2xl w-full max-w-md transform scale-100 transition-transform duration-300"
-      >
-        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center">
-          <i
-            data-lucide="plus-square"
-            class="w-5 h-5 mr-2 text-emerald-500"
-          ></i>
-          Register New Asset
-        </h3>
-        <p class="text-sm text-red-500 mb-4">
-          The scanned tag was not found. Please register this new equipment.
-        </p>
+    <div id="registrationModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50 transition-opacity duration-300">
+        <div class="bg-white p-6 rounded-none shadow-2xl w-full max-w-md transform scale-100 transition-transform duration-300">
+            <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center">
+                <i data-lucide="plus-square" class="w-5 h-5 mr-2 text-emerald-500"></i>
+                Register New Asset
+            </h3>
+            <p class="text-sm text-red-500 mb-4">The scanned tag was not found. Please register this new equipment.</p>
 
-        <form
-          id="registrationForm"
-          onsubmit="event.preventDefault(); window.registerAsset()"
-        >
-          <div class="mb-4">
-            <label
-              for="regRfidTag"
-              class="block text-sm font-medium text-gray-700 mb-1"
-              >RFID Tag ID (Scanned)</label
-            >
-            <input
-              type="text"
-              id="regRfidTag"
-              readonly
-              class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-none"
-              required
-            />
-          </div>
-          <div class="mb-4">
-            <label
-              for="regName"
-              class="block text-sm font-medium text-gray-700 mb-1"
-              >Asset Name / Description</label
-            >
-            <input
-              type="text"
-              id="regName"
-              placeholder="e.g., Dell Latitude 5520 Laptop"
-              class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-          </div>
-          <div class="mb-6">
-            <label
-              for="regInitialLocation"
-              class="block text-sm font-medium text-gray-700 mb-1"
-              >Initial Location</label
-            >
-            <input
-              type="text"
-              id="regInitialLocation"
-              placeholder="e.g., IT Storage Room"
-              class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-emerald-500 focus:border-emerald-500"
-              required
-            />
-          </div>
+            <form id="registrationForm" onsubmit="event.preventDefault(); window.registerAsset()">
+                <div class="mb-4">
+                    <label for="regRfidTag" class="block text-sm font-medium text-gray-700 mb-1">RFID Tag ID (Scanned)</label>
+                    <input type="text" id="regRfidTag" readonly class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-none" required>
+                </div>
+                <div class="mb-4">
+                    <label for="regName" class="block text-sm font-medium text-gray-700 mb-1">Asset Name / Description</label>
+                    <input type="text" id="regName" placeholder="e.g., Dell Latitude 5520 Laptop" class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-emerald-500 focus:border-emerald-500" required>
+                </div>
+                <div class="mb-6">
+                    <label for="regInitialLocation" class="block text-sm font-medium text-gray-700 mb-1">Initial Location</label>
+                    <input type="text" id="regInitialLocation" placeholder="e.g., IT Storage Room" class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-emerald-500 focus:border-emerald-500" required>
+                </div>
 
-          <div class="flex justify-end space-x-3">
-            <button
-              type="button"
-              onclick="window.closeRegistrationModal()"
-              class="py-2 px-4 border border-gray-300 rounded-none text-gray-700 hover:bg-gray-50 transition duration-150"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              id="registerSubmitButton"
-              class="py-2 px-4 bg-emerald-600 text-white font-semibold rounded-none hover:bg-emerald-700 transition duration-150 flex items-center"
-            >
-              Register Asset
-            </button>
-          </div>
-        </form>
-      </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="window.closeRegistrationModal()" class="py-2 px-4 border border-gray-300 rounded-none text-gray-700 hover:bg-gray-50 transition duration-150">
+                        Cancel
+                    </button>
+                    <button type="submit" id="registerSubmitButton" class="py-2 px-4 bg-emerald-600 text-white font-semibold rounded-none hover:bg-emerald-700 transition duration-150 flex items-center">
+                        Register Asset
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-
+    
     <!-- Modal for Viewing/Editing Asset Details -->
-    <div
-      id="detailsModal"
-      class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50 transition-opacity duration-300"
-    >
-      <div
-        class="bg-white p-6 rounded-none shadow-2xl w-full max-w-md transform scale-100 transition-transform duration-300"
-      >
-        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center">
-          <i data-lucide="package" class="w-5 h-5 mr-2 text-indigo-500"></i>
-          Asset Details & Edit
-        </h3>
-        <p class="text-sm text-gray-600 mb-4">
-          View or update the permanent details for this registered asset.
-        </p>
+    <div id="detailsModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center p-4 z-50 transition-opacity duration-300">
+        <div class="bg-white p-6 rounded-none shadow-2xl w-full max-w-md transform scale-100 transition-transform duration-300">
+            <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center">
+                <i data-lucide="package" class="w-5 h-5 mr-2 text-indigo-500"></i>
+                Asset Details & Edit
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">View or update the permanent details for this registered asset.</p>
 
-        <form
-          id="detailsForm"
-          onsubmit="event.preventDefault(); window.saveAssetDetails()"
-        >
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >RFID Tag ID</label
-            >
-            <input
-              type="text"
-              id="detailsRfidTag"
-              readonly
-              class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-none"
-            />
-          </div>
-          <div class="mb-4">
-            <label
-              for="detailsName"
-              class="block text-sm font-medium text-gray-700 mb-1"
-              >Asset Name / Description (Editable)</label
-            >
-            <input
-              type="text"
-              id="detailsName"
-              class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-indigo-500 focus:border-indigo-500"
-              required
-            />
-          </div>
-          <div class="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >Current Location</label
-              >
-              <p
-                id="detailsCurrentLocation"
-                class="w-full px-4 py-2 bg-gray-50 text-gray-800 rounded-none border border-gray-200 font-medium"
-              ></p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >Last Scanned</label
-              >
-              <p
-                id="detailsLastScan"
-                class="w-full px-4 py-2 bg-gray-50 text-gray-800 rounded-none border border-gray-200"
-              ></p>
-            </div>
-          </div>
+            <form id="detailsForm" onsubmit="event.preventDefault(); window.saveAssetDetails()">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">RFID Tag ID</label>
+                    <input type="text" id="detailsRfidTag" readonly class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-none">
+                </div>
+                <div class="mb-4">
+                    <label for="detailsName" class="block text-sm font-medium text-gray-700 mb-1">Asset Name / Description (Editable)</label>
+                    <input type="text" id="detailsName" class="w-full px-4 py-2 border border-gray-300 rounded-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Current Location</label>
+                        <p id="detailsCurrentLocation" class="w-full px-4 py-2 bg-gray-50 text-gray-800 rounded-none border border-gray-200 font-medium"></p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Last Scanned</label>
+                        <p id="detailsLastScan" class="w-full px-4 py-2 bg-gray-50 text-gray-800 rounded-none border border-gray-200"></p>
+                    </div>
+                </div>
 
-          <div class="flex justify-end space-x-3">
-            <button
-              type="button"
-              onclick="window.closeDetailsModal()"
-              class="py-2 px-4 border border-gray-300 rounded-none text-gray-700 hover:bg-gray-50 transition duration-150"
-            >
-              Close
-            </button>
-            <button
-              type="submit"
-              id="saveDetailsButton"
-              class="py-2 px-4 bg-indigo-600 text-white font-semibold rounded-none hover:bg-indigo-700 transition duration-150 flex items-center"
-            >
-              Save Changes
-            </button>
-          </div>
-        </form>
-      </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="window.closeDetailsModal()" class="py-2 px-4 border border-gray-300 rounded-none text-gray-700 hover:bg-gray-50 transition duration-150">
+                        Close
+                    </button>
+                    <button type="submit" id="saveDetailsButton" class="py-2 px-4 bg-indigo-600 text-white font-semibold rounded-none hover:bg-indigo-700 transition duration-150 flex items-center">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
+
 
     <!-- Firebase SDK Imports -->
     <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import {
-        getAuth,
-        signInAnonymously,
-        signInWithCustomToken,
-        onAuthStateChanged,
-      } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-      import {
-        getFirestore,
-        collection,
-        query,
-        onSnapshot,
-        doc,
-        getDoc,
-        setDoc,
-        updateDoc,
-        deleteDoc,
-        runTransaction,
-        setLogLevel,
-        getDocs,
-      } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, setLogLevel, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-      // Global state to manage what should be displayed after a modal closes
-      let isBulkReportVisible = false; // NEW FLAG
+        // Global state to manage what should be displayed after a modal closes
+        let isBulkReportVisible = false; // NEW FLAG
 
-      // Global variables provided by the environment
-      const appId =
-        typeof __app_id !== "undefined" ? __app_id : "default-asset-tracker";
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-asset-tracker';
+        
+        // --- START: LOCAL CONFIGURATION BLOCK ---
+        // *** IMPORTANT ***: If you are running this file by double-clicking it on your laptop, 
+        // you MUST replace these placeholder values with your own Firebase Web App config.
+        const myLocalFirebaseConfig = {
+            apiKey: "AIzaSyBR9As5E3Lo65im8gJwHD3yWktoP08aa4M",
+            authDomain: "asset-tracking-433.firebaseapp.com",
+            projectId: "asset-tracking-433",
+            storageBucket: "asset-tracking-433.firebasestorage.app",
+            messagingSenderId: "685815108635",
+            appId: "1:685815108635:web:2a730f47122308c8a314be",
+            measurementId: "G-94M41PTB5C",
+        };
+        // --- END: LOCAL CONFIGURATION BLOCK ---
 
-      // --- START: LOCAL CONFIGURATION BLOCK ---
-      // *** IMPORTANT ***: If you are running this file by double-clicking it on your laptop,
-      // you MUST replace these placeholder values with your own Firebase Web App config.
-      const myLocalFirebaseConfig = {
-        apiKey: "AIzaSyBR9As5E3Lo65im8gJwHD3yWktoP08aa4M",
-        authDomain: "asset-tracking-433.firebaseapp.com",
-        projectId: "asset-tracking-433",
-        storageBucket: "asset-tracking-433.firebasestorage.app",
-        messagingSenderId: "685815108635",
-        appId: "1:685815108635:web:2a730f47122308c8a314be",
-        measurementId: "G-94M41PTB5C",
-      };
-      // --- END: LOCAL CONFIGURATION BLOCK ---
-
-      let firebaseConfig = null;
-      let isRunningLocally = false;
-
-      if (typeof __firebase_config !== "undefined" && __firebase_config) {
-        // Running in Canvas environment (Secure, auto-provided config)
-        try {
-          firebaseConfig = JSON.parse(__firebase_config);
-        } catch (e) {
-          console.error("Critical Error: Cannot parse __firebase_config.", e);
-        }
-      } else {
-        // Running locally (Using the config defined in myLocalFirebaseConfig)
-        firebaseConfig = myLocalFirebaseConfig;
-        isRunningLocally = true;
-      }
-
-      const initialAuthToken =
-        typeof __initial_auth_token !== "undefined"
-          ? __initial_auth_token
-          : null;
-      // ------------------------------
-
-      // Initialize Firebase
-      let app, db, auth;
-      let userId = null;
-      let assets = []; // Local cache of ALL assets
-      let isAuthReady = false;
-
-      // Check if config exists before initializing
-      if (firebaseConfig) {
-        // CHECK IF firebaseConfig is available
-        try {
-          // Check for the original placeholder key when running locally
-          if (
-            isRunningLocally &&
-            firebaseConfig.apiKey === "YOUR_API_KEY_HERE"
-          ) {
-            // Still using generic placeholders locally (user didn't replace them)
-            document.getElementById(
-              "initialLoadingMessage"
-            ).innerHTML = `*** LOCAL ERROR *** Please replace the placeholder keys in the "Local Configuration Block" in the code.`;
-            document.getElementById("user-id").textContent = "Config Error";
-          } else {
-            // Either running in Canvas, or running locally with user-supplied keys
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            setLogLevel("Debug"); // Set logging for debugging
-            handleSignIn(); // Start authentication
-          }
-        } catch (e) {
-          console.error("Firebase Initialization Failed:", e);
-          document.getElementById(
-            "initialLoadingMessage"
-          ).innerHTML = `Critical Error: Initialization failed. Check console for details.`;
-          document.getElementById("user-id").textContent = "Init Failed";
-        }
-      } else {
-        // General Config Missing for Canvas environment
-        document.getElementById(
-          "initialLoadingMessage"
-        ).innerHTML = `Error: Firebase configuration is missing. Cannot run outside the Canvas environment.`;
-        document.getElementById("user-id").textContent = "Config Missing";
-      }
-
-      // --- Sample Data Definition ---
-      const SAMPLE_ASSETS = [
-        {
-          rfidTag: "LAPTOP-001",
-          name: "Dell XPS 13",
-          location: "Deployed - Office 305",
-          status: "Active",
-          lastScanTime: Date.now() - 500000,
-        },
-        {
-          rfidTag: "PROJECTOR-A",
-          name: "Epson Projector Model 4K",
-          location: "Conference Room 1",
-          status: "Active",
-          lastScanTime: Date.now() - 1200000,
-        },
-        {
-          rfidTag: "DRILL-P-45",
-          name: "Industrial Drill Press",
-          location: "Maintenance Bay",
-          status: "Maintenance",
-          lastScanTime: Date.now() - 3600000,
-        },
-        {
-          rfidTag: "SCANNER-B",
-          name: "Handheld RFID Reader B",
-          location: "Warehouse - A1",
-          status: "Available",
-          lastScanTime: Date.now(),
-        },
-      ];
-      // ------------------------------------
-
-      // --- Utility Functions ---
-
-      /**
-       * Returns the Firestore collection reference for the current user's assets.
-       */
-      function getAssetsCollectionRef() {
-        if (!userId) throw new Error("User not authenticated or ID not set.");
-        // Private data path: /artifacts/{appId}/users/{userId}/assets
-        const collectionPath = `artifacts/${appId}/users/${userId}/assets`;
-        return collection(db, collectionPath);
-      }
-
-      /**
-       * Forces a manual fetch and re-render of the asset table.
-       * Used to ensure instant visual updates after a write operation.
-       */
-      async function forceTableUpdate() {
-        try {
-          const querySnapshot = await getDocs(query(getAssetsCollectionRef()));
-          assets = [];
-          querySnapshot.forEach((doc) => assets.push(doc.data()));
-          renderAssets();
-          document.getElementById("initialLoadingMessage").style.display =
-            "none";
-        } catch (e) {
-          console.error("Manual table fetch failed:", e);
-          // The onSnapshot listener (if active) should handle subsequent updates.
-        }
-      }
-
-      /**
-       * Displays a temporary, color-coded message to the user.
-       */
-      function showMessage(message, type = "success") {
-        const box = document.getElementById("messageBox");
-        let bgColor =
-          type === "success"
-            ? "bg-emerald-100 text-emerald-700"
-            : "bg-red-100 text-red-700";
-
-        box.className = `p-3 text-sm rounded-none transition-opacity duration-300 opacity-100 ${bgColor}`;
-        box.textContent = message;
-
-        setTimeout(() => {
-          box.classList.replace("opacity-100", "opacity-0");
-        }, 5000); // Increased timeout for better visibility
-      }
-
-      /**
-       * Formats a Unix timestamp into a readable date/time string.
-       */
-      function formatTimestamp(timestamp) {
-        if (!timestamp) return "N/A";
-        const date = new Date(timestamp);
-        return date.toLocaleString();
-      }
-
-      /**
-       * Renders the current list of assets to the table.
-       */
-      function renderAssets() {
-        const tbody = document.getElementById("assetTableBody");
-        const countSpan = document.getElementById("assetCount");
-        tbody.innerHTML = "";
-
-        if (assets.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No assets tracked yet. Scan an RFID tag to begin!</td></tr>`;
-          countSpan.textContent = "0";
-          document.getElementById("initialLoadingMessage").style.display =
-            "none";
-          return;
+        let firebaseConfig = null;
+        let isRunningLocally = false;
+        
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            // Running in Canvas environment (Secure, auto-provided config)
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } catch (e) {
+                console.error("Critical Error: Cannot parse __firebase_config.", e);
+            }
+        } else {
+            // Running locally (Using the config defined in myLocalFirebaseConfig)
+            firebaseConfig = myLocalFirebaseConfig;
+            isRunningLocally = true;
         }
 
-        countSpan.textContent = assets.length;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // ------------------------------
 
-        // Sort assets by lastScanTime descending (most recent first)
-        const sortedAssets = [...assets].sort(
-          (a, b) => (b.lastScanTime || 0) - (a.lastScanTime || 0)
-        );
+        // Initialize Firebase
+        let app, db, auth;
+        let userId = null;
+        let assets = []; // Local cache of ALL assets
+        let isAuthReady = false;
 
-        sortedAssets.forEach((asset) => {
-          const tr = document.createElement("tr");
-          tr.className = "hover:bg-gray-50 transition duration-100";
+        // Check if config exists before initializing
+        if (firebaseConfig) { // CHECK IF firebaseConfig is available
+            try {
+                 // Check for the original placeholder key when running locally
+                 if (isRunningLocally && firebaseConfig.apiKey === 'YOUR_API_KEY_HERE') {
+                     // Still using generic placeholders locally (user didn't replace them)
+                     document.getElementById('initialLoadingMessage').innerHTML = `*** LOCAL ERROR *** Please replace the placeholder keys in the "Local Configuration Block" in the code.`;
+                     document.getElementById('user-id').textContent = 'Config Error';
+                 } else {
+                     // Either running in Canvas, or running locally with user-supplied keys
+                     app = initializeApp(firebaseConfig);
+                     db = getFirestore(app);
+                     auth = getAuth(app);
+                     setLogLevel('Debug'); // Set logging for debugging
+                     handleSignIn(); // Start authentication
+                 }
+            } catch (e) {
+                console.error("Firebase Initialization Failed:", e);
+                document.getElementById('initialLoadingMessage').innerHTML = `Critical Error: Initialization failed. Check console for details.`;
+                document.getElementById('user-id').textContent = 'Init Failed';
+            }
+        } else {
+             // General Config Missing for Canvas environment
+             document.getElementById('initialLoadingMessage').innerHTML = `Error: Firebase configuration is missing. Cannot run outside the Canvas environment.`;
+             document.getElementById('user-id').textContent = 'Config Missing';
+        }
 
-          // Assign status color based on location/status keywords
-          let statusColor = "bg-gray-100 text-gray-800";
-          if (asset.location && asset.location.includes("Warehouse")) {
-            statusColor = "bg-green-100 text-green-800";
-          } else if (asset.location && asset.location.includes("Deployed")) {
-            statusColor = "bg-yellow-100 text-yellow-800";
-          } else if (asset.location && asset.location.includes("Maintenance")) {
-            statusColor = "bg-blue-100 text-blue-800";
-          } else if (asset.location && asset.location.includes("Scrapped")) {
-            statusColor = "bg-red-100 text-red-800";
-          }
+        // --- Sample Data Definition ---
+        const SAMPLE_ASSETS = [
+            { rfidTag: "LAPTOP-001", name: "Dell XPS 13", location: "Deployed - Office 305", status: "Active", lastScanTime: Date.now() - 500000 },
+            { rfidTag: "PROJECTOR-A", name: "Epson Projector Model 4K", location: "Conference Room 1", status: "Active", lastScanTime: Date.now() - 1200000 },
+            { rfidTag: "DRILL-P-45", name: "Industrial Drill Press", location: "Maintenance Bay", status: "Maintenance", lastScanTime: Date.now() - 3600000 },
+            { rfidTag: "SCANNER-B", name: "Handheld RFID Reader B", location: "Warehouse - A1", status: "Available", lastScanTime: Date.now() },
+        ];
+        // ------------------------------------
+        
+        // --- Utility Functions ---
 
-          tr.innerHTML = `
-                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${
-                      asset.name
-                    }</td>
-                    <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500 font-mono hidden sm:table-cell">${
-                      asset.rfidTag
-                    }</td>
+        /**
+         * Returns the Firestore collection reference for the current user's assets.
+         * FIX: Switched from private path (users/{userId}) to shared public path (public/data)
+         */
+        function getAssetsCollectionRef() {
+            if (!userId) throw new Error("User not authenticated or ID not set.");
+            // Shared data path: /artifacts/{appId}/public/data/assets
+            const collectionPath = `artifacts/${appId}/public/data/assets`;
+            return collection(db, collectionPath);
+        }
+
+        /**
+         * Forces a manual fetch and re-render of the asset table.
+         * Used to ensure instant visual updates after a write operation.
+         */
+        async function forceTableUpdate() {
+            try {
+                const querySnapshot = await getDocs(query(getAssetsCollectionRef()));
+                assets = [];
+                querySnapshot.forEach((doc) => assets.push(doc.data()));
+                renderAssets();
+                document.getElementById('initialLoadingMessage').style.display = 'none';
+            } catch (e) {
+                console.error("Manual table fetch failed:", e);
+                // The onSnapshot listener (if active) should handle subsequent updates.
+            }
+        }
+
+        /**
+         * Displays a temporary, color-coded message to the user.
+         */
+        function showMessage(message, type = 'success') {
+            const box = document.getElementById('messageBox');
+            let bgColor = type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
+
+            box.className = `p-3 text-sm rounded-none transition-opacity duration-300 opacity-100 ${bgColor}`;
+            box.textContent = message;
+
+            setTimeout(() => {
+                box.classList.replace('opacity-100', 'opacity-0');
+            }, 5000); // Increased timeout for better visibility
+        }
+
+        /**
+         * Formats a Unix timestamp into a readable date/time string.
+         */
+        function formatTimestamp(timestamp) {
+            if (!timestamp) return 'N/A';
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        /**
+         * Renders the current list of assets to the table.
+         */
+        function renderAssets() {
+            const tbody = document.getElementById('assetTableBody');
+            const countSpan = document.getElementById('assetCount');
+            tbody.innerHTML = '';
+            
+            if (assets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">No assets tracked yet. Scan an RFID tag to begin!</td></tr>`;
+                countSpan.textContent = '0';
+                document.getElementById('initialLoadingMessage').style.display = 'none';
+                return;
+            }
+
+            countSpan.textContent = assets.length;
+
+            // Sort assets by lastScanTime descending (most recent first)
+            const sortedAssets = [...assets].sort((a, b) => (b.lastScanTime || 0) - (a.lastScanTime || 0));
+
+            sortedAssets.forEach(asset => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition duration-100';
+
+                // Assign status color based on location/status keywords
+                let statusColor = 'bg-gray-100 text-gray-800';
+                if (asset.location && asset.location.includes('Warehouse')) {
+                    statusColor = 'bg-green-100 text-green-800';
+                } else if (asset.location && asset.location.includes('Deployed')) {
+                    statusColor = 'bg-yellow-100 text-yellow-800';
+                } else if (asset.location && asset.location.includes('Maintenance')) {
+                    statusColor = 'bg-blue-100 text-blue-800';
+                } else if (asset.location && asset.location.includes('Scrapped')) {
+                    statusColor = 'bg-red-100 text-red-800';
+                }
+
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${asset.name}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-xs text-gray-500 font-mono hidden sm:table-cell">${asset.rfidTag}</td>
                     <td class="px-4 py-3 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold ${statusColor}">
                             ${asset.location}
                         </span>
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">${formatTimestamp(
-                      asset.lastScanTime
-                    )}</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">${formatTimestamp(asset.lastScanTime)}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                        <button onclick="window.deleteAsset('${
-                          asset.rfidTag
-                        }')" class="action-button">
+                        <button onclick="window.deleteAsset('${asset.rfidTag}')" class="action-button">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </td>
                 `;
-          tbody.appendChild(tr);
-        });
-        // Re-render lucide icons
-        lucide.createIcons();
-      }
+                tbody.appendChild(tr);
+            });
+            // Re-render lucide icons
+            lucide.createIcons();
+        }
 
-      /**
-       * Renders the bulk scan results into the dedicated inline container.
-       * @param {Array} results Array of scan results.
-       * @param {number} updateCount Number of assets moved.
-       * @param {number} totalCount Total number of tags scanned.
-       */
-      function renderBulkResultsTable(results, updateCount, totalCount) {
-        const container = document.getElementById("bulkResultsContainer");
-        const tbody = document.getElementById("bulkResultsTableBody");
+        /**
+         * Renders the bulk scan results into the dedicated inline container.
+         * @param {Array} results Array of scan results.
+         * @param {number} updateCount Number of assets moved.
+         * @param {number} totalCount Total number of tags scanned.
+         */
+        function renderBulkResultsTable(results, updateCount, totalCount) {
+            const container = document.getElementById('bulkResultsContainer');
+            const tbody = document.getElementById('bulkResultsTableBody');
+            
+            tbody.innerHTML = '';
+            
+            document.getElementById('bulkTotalCount').textContent = totalCount;
+            document.getElementById('bulkUpdateStatus').textContent = updateCount > 0 
+                ? `${updateCount} assets were MOVED to ${document.getElementById('scanLocation').value}.`
+                : `No location update was selected. Displaying lookup results.`;
 
-        tbody.innerHTML = "";
+            results.forEach(result => {
+                const tr = document.createElement('tr');
+                
+                let statusColor = 'bg-gray-100 text-gray-800';
+                let actionButton = `<button onclick="window.viewAssetDetailsByTag('${result.rfidTag}')" class="text-indigo-600 hover:text-indigo-900 transition duration-150">Details/Edit</button>`;
+                let nameDisplay = result.name || 'N/A';
 
-        document.getElementById("bulkTotalCount").textContent = totalCount;
-        document.getElementById("bulkUpdateStatus").textContent =
-          updateCount > 0
-            ? `${updateCount} assets were MOVED to ${
-                document.getElementById("scanLocation").value
-              }.`
-            : `No location update was selected. Displaying lookup results.`;
+                if (result.action === 'Moved') {
+                    statusColor = 'bg-green-100 text-green-800';
+                } else if (result.action === 'New') {
+                    statusColor = 'bg-red-100 text-red-800';
+                    actionButton = `<button onclick="window.prepareRegistration('${result.rfidTag}')" class="text-emerald-600 hover:text-emerald-900 transition duration-150">REGISTER</button>`;
+                    nameDisplay = '*** New Tag ***';
+                }
 
-        results.forEach((result) => {
-          const tr = document.createElement("tr");
-
-          let statusColor = "bg-gray-100 text-gray-800";
-          let actionButton = `<button onclick="window.viewAssetDetailsByTag('${result.rfidTag}')" class="text-indigo-600 hover:text-indigo-900 transition duration-150">Details/Edit</button>`;
-          let nameDisplay = result.name || "N/A";
-
-          if (result.action === "Moved") {
-            statusColor = "bg-green-100 text-green-800";
-          } else if (result.action === "New") {
-            statusColor = "bg-red-100 text-red-800";
-            actionButton = `<button onclick="window.prepareRegistration('${result.rfidTag}')" class="text-emerald-600 hover:text-emerald-900 transition duration-150">REGISTER</button>`;
-            nameDisplay = "*** New Tag ***";
-          }
-
-          tr.innerHTML = `
-                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${
-                      result.rfidTag
-                    }</td>
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${result.rfidTag}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm">${nameDisplay}</td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold ${statusColor}">${
-            result.action
-          }</span>
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold ${statusColor}">${result.action}</span>
                     </td>
-                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${
-                      result.action === "Moved"
-                        ? result.location
-                        : result.location || "Current"
-                    }</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${result.action === 'Moved' ? result.location : result.location || 'Current'}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">${actionButton}</td>
                 `;
-          tbody.appendChild(tr);
-        });
-
-        container.classList.remove("hidden");
-        document.getElementById("primaryAssetList").classList.add("hidden"); // Hide primary list
-        isBulkReportVisible = true; // Set flag
-        lucide.createIcons();
-      }
-
-      /**
-       * Hides the bulk results and shows the primary asset list.
-       */
-      window.clearBulkResults = function () {
-        document.getElementById("bulkResultsContainer").classList.add("hidden");
-        document.getElementById("primaryAssetList").classList.remove("hidden");
-        isBulkReportVisible = false; // Clear flag
-      };
-
-      // --- Core Application Logic (exposed globally for HTML) ---
-
-      /**
-       * Loads sample data (4 pre-defined assets) into Firestore.
-       */
-      window.seedSampleData = async function () {
-        if (!isAuthReady) {
-          showMessage(
-            "Authentication not ready. Cannot seed data. Please wait for the User ID to appear.",
-            "error"
-          );
-          return;
-        }
-        const seedButton = document.getElementById("seedButton");
-        seedButton.disabled = true;
-        seedButton.innerHTML = '<div class="spinner mr-2"></div> Seeding...';
-
-        try {
-          const batchOperations = [];
-          const assetCollection = getAssetsCollectionRef();
-
-          // Use setDoc for each asset, ensuring the RFID tag is the document ID
-          SAMPLE_ASSETS.forEach((asset) => {
-            const docRef = doc(assetCollection, asset.rfidTag);
-            // Include userId in the data being written
-            batchOperations.push(setDoc(docRef, { ...asset, userId: userId }));
-          });
-
-          await Promise.all(batchOperations);
-
-          await forceTableUpdate();
-
-          showMessage(
-            `Successfully added ${SAMPLE_ASSETS.length} sample assets!`,
-            "success"
-          );
-        } catch (error) {
-          console.error(
-            "FIREBASE WRITE HANG/ERROR (Seeding): Ensure Security Rules allow authenticated writes.",
-            error
-          );
-          showMessage(
-            "Failed to load sample data. See console for 'FIREBASE WRITE HANG/ERROR'.",
-            "error"
-          );
-        } finally {
-          seedButton.disabled = false;
-          seedButton.innerHTML =
-            '<i data-lucide="database" class="w-5 h-5 mr-2"></i> Load Sample Data';
-          lucide.createIcons();
-        }
-      };
-
-      /**
-       * Handles bulk processing of IDs from the text area.
-       */
-      window.processBulkScan = async function () {
-        if (!isAuthReady) {
-          showMessage("Authentication not ready. Please wait.", "error");
-          return;
-        }
-        const rfidInputEl = document.getElementById("rfidInput");
-        const rawInput = rfidInputEl.value;
-        const selectedLocation = document.getElementById("scanLocation").value;
-
-        if (!rawInput.trim()) {
-          showMessage("Input box is empty. Please scan or paste IDs.", "error");
-          return;
-        }
-
-        // 1. Clean and split the input into unique Tag IDs (Handles spaces, newlines, and commas)
-        const rfidTags = rawInput
-          .split(/[\s,]+/) // Split by space or comma
-          .map((tag) => tag.trim().toUpperCase())
-          .filter((tag, index, self) => tag && self.indexOf(tag) === index); // Filter empty and ensure uniqueness
-
-        if (rfidTags.length === 0) {
-          showMessage("No valid, unique tag IDs found in input.", "error");
-          return;
-        }
-
-        const scanButton = document.getElementById("scanButton");
-        scanButton.disabled = true;
-        scanButton.innerHTML = `<div class="spinner mr-2"></div> Processing ${rfidTags.length} Tags...`;
-
-        const results = [];
-        const writeOperations = [];
-        let updateCount = 0;
-
-        try {
-          const assetCollection = getAssetsCollectionRef();
-          const now = Date.now();
-
-          const fetchPromises = rfidTags.map((tag) =>
-            getDoc(doc(assetCollection, tag))
-          );
-          const docSnapshots = await Promise.all(fetchPromises);
-
-          docSnapshots.forEach((docSnap, index) => {
-            const rfidTag = rfidTags[index];
-            const existingAsset = docSnap.exists() ? docSnap.data() : null;
-
-            if (existingAsset) {
-              const currentAssetLocation = existingAsset.location;
-
-              // Check if a location update is requested
-              if (
-                selectedLocation !== "No Update Selected" &&
-                selectedLocation !== currentAssetLocation
-              ) {
-                // Perform Update (Movement)
-                writeOperations.push(
-                  updateDoc(doc(assetCollection, rfidTag), {
-                    location: selectedLocation,
-                    lastScanTime: now,
-                  })
-                );
-                results.push({
-                  rfidTag,
-                  name: existingAsset.name,
-                  action: "Moved",
-                  location: selectedLocation,
-                });
-                updateCount++;
-              } else {
-                // Lookup Only
-                results.push({
-                  rfidTag,
-                  name: existingAsset.name,
-                  action: "Found",
-                  location: existingAsset.location, // Current Location
-                });
-              }
-            } else {
-              // New Asset (Not Found)
-              results.push({
-                rfidTag,
-                name: null,
-                action: "New",
-                location: "Unregistered",
-              });
-            }
-          });
-
-          // Execute all promised updates/moves
-          await Promise.all(writeOperations);
-
-          // RENDER RESULTS INLINE
-          renderBulkResultsTable(results, updateCount, rfidTags.length);
-
-          // If any write occurred, force the main table to update
-          if (updateCount > 0) {
-            await forceTableUpdate();
-          }
-
-          showMessage(
-            `Bulk scan complete. Processed ${rfidTags.length} IDs. ${updateCount} assets moved.`,
-            "success"
-          );
-
-          // Clear input field only after successful display
-          rfidInputEl.value = "";
-          document.getElementById("scanLocation").value = "No Update Selected";
-        } catch (error) {
-          console.error("Error processing bulk scan:", error);
-          showMessage(`Error during bulk scan: ${error.message}`, "error");
-        } finally {
-          scanButton.disabled = false;
-          scanButton.innerHTML =
-            '<i data-lucide="list-checks" class="w-5 h-5 mr-2"></i> Process Scan';
-          lucide.createIcons();
-        }
-      };
-
-      /**
-       * Initiates registration from the bulk scan report.
-       */
-      window.prepareRegistration = function (rfidTag) {
-        window.clearBulkResults(); // Go back to main view (which will be the primary list after clearing the report)
-        document.getElementById("regRfidTag").value = rfidTag;
-        document.getElementById("regInitialLocation").value =
-          "New Asset Registration";
-        document.getElementById("regName").value = "";
-        window.openRegistrationModal();
-        showMessage(`Registering new tag ${rfidTag}.`, "error");
-      };
-
-      /**
-       * Fetches a single asset and opens the details modal.
-       * Used when clicking Details/Edit in the Bulk Scan Results table.
-       */
-      window.viewAssetDetailsByTag = async function (rfidTag) {
-        try {
-          const assetDoc = await getDoc(doc(getAssetsCollectionRef(), rfidTag));
-          if (assetDoc.exists()) {
-            // Check if the bulk report is currently visible BEFORE opening the modal
-            if (
-              !document
-                .getElementById("bulkResultsContainer")
-                .classList.contains("hidden")
-            ) {
-              isBulkReportVisible = true;
-            }
-            window.viewAssetDetails(assetDoc.data());
-          } else {
-            showMessage(
-              `Error: Asset ${rfidTag} not found in database.`,
-              "error"
-            );
-          }
-        } catch (error) {
-          console.error("Error fetching single asset:", error);
-          showMessage("Failed to load asset details.", "error");
-        }
-      };
-
-      /**
-       * Registers a new asset after a scan and closes the modal.
-       */
-      window.registerAsset = async function () {
-        const rfidInputEl = document.getElementById("rfidInput");
-        const rfidTag = document
-          .getElementById("regRfidTag")
-          .value.trim()
-          .toUpperCase();
-        const name = document.getElementById("regName").value.trim();
-        const location = document.getElementById("regInitialLocation").value;
-        const currentTime = Date.now();
-
-        if (!rfidTag || !name || !location) {
-          showMessage("All registration fields are required.", "error");
-          return;
-        }
-
-        const submitButton = document.getElementById("registerSubmitButton");
-        submitButton.disabled = true;
-        submitButton.innerHTML =
-          '<div class="spinner mr-2"></div> Registering...';
-
-        try {
-          // Use setDoc to create the document with the RFID Tag as the Document ID
-          await setDoc(doc(getAssetsCollectionRef(), rfidTag), {
-            rfidTag: rfidTag,
-            name: name,
-            location: location,
-            status: "Registered",
-            lastScanTime: currentTime,
-            userId: userId,
-          });
-
-          await forceTableUpdate();
-
-          showMessage(
-            `Asset "${name}" (${rfidTag}) successfully registered!`,
-            "success"
-          );
-          rfidInputEl.value = "";
-          rfidInputEl.focus();
-          window.closeRegistrationModal();
-        } catch (error) {
-          console.error("Error registering asset:", error);
-          showMessage("Failed to register asset.", "error");
-        } finally {
-          submitButton.disabled = false;
-          submitButton.innerHTML = "Register Asset";
-        }
-      };
-
-      /**
-       * Saves the edited asset name/details to Firestore (Fulfills user request to "change the values").
-       */
-      window.saveAssetDetails = async function () {
-        const rfidTag = document
-          .getElementById("detailsRfidTag")
-          .value.trim()
-          .toUpperCase();
-        const newName = document.getElementById("detailsName").value.trim();
-
-        if (!rfidTag || !newName) {
-          showMessage("Asset Name is required.", "error");
-          return;
-        }
-
-        const saveButton = document.getElementById("saveDetailsButton");
-        saveButton.disabled = true;
-        saveButton.innerHTML = '<div class="spinner mr-2"></div> Saving...';
-
-        try {
-          const assetDocRef = doc(getAssetsCollectionRef(), rfidTag);
-
-          await updateDoc(assetDocRef, {
-            name: newName,
-            // Note: Location update is handled by the main scan logic, not here.
-          });
-
-          await forceTableUpdate();
-
-          showMessage(
-            `Asset details for ${rfidTag} updated to "${newName}".`,
-            "success"
-          );
-          window.closeDetailsModal();
-        } catch (error) {
-          console.error(
-            "FIREBASE WRITE HANG/ERROR (Save Details): Ensure Security Rules allow authenticated writes.",
-            error
-          );
-          showMessage(
-            "Failed to save asset details. See console for 'FIREBASE WRITE HANG/ERROR'.",
-            "error"
-          );
-        } finally {
-          saveButton.disabled = false;
-          saveButton.innerHTML = "Save Changes";
-        }
-      };
-
-      /**
-       * Deletes an asset by its RFID tag.
-       */
-      window.deleteAsset = async function (rfidTag) {
-        if (!isAuthReady) return;
-
-        if (
-          !confirm(
-            `Are you sure you want to permanently delete asset with Tag ID: ${rfidTag}?`
-          )
-        ) {
-          return;
-        }
-
-        try {
-          await deleteDoc(doc(getAssetsCollectionRef(), rfidTag));
-
-          await forceTableUpdate();
-
-          showMessage(`Asset ${rfidTag} successfully deleted.`, "success");
-        } catch (error) {
-          console.error("Error deleting asset:", error);
-          showMessage("Failed to delete asset.", "error");
-        }
-      };
-
-      /**
-       * Deletes ALL assets in the user's collection.
-       */
-      window.deleteAllAssets = async function () {
-        if (!isAuthReady) {
-          showMessage("Authentication not ready. Cannot delete data.", "error");
-          return;
-        }
-
-        if (
-          !confirm(
-            "WARNING: This will permanently delete ALL assets in your tracking list. Are you absolutely sure you want to continue?"
-          )
-        ) {
-          return;
-        }
-
-        const deleteButton = document.getElementById("deleteAllButton");
-        deleteButton.disabled = true;
-        deleteButton.innerHTML =
-          '<div class="spinner mr-2"></div> Deleting All...';
-
-        try {
-          const assetCollection = getAssetsCollectionRef();
-          const querySnapshot = await getDocs(query(assetCollection));
-
-          if (querySnapshot.empty) {
-            showMessage("No assets found to delete.", "success");
-            return;
-          }
-
-          const deleteOperations = [];
-          querySnapshot.forEach((doc) => {
-            deleteOperations.push(deleteDoc(doc.ref));
-          });
-
-          await Promise.all(deleteOperations);
-
-          await forceTableUpdate(); // Clears the table
-
-          showMessage(
-            `Successfully deleted ${deleteOperations.length} assets. Your tracking list is now empty.`,
-            "success"
-          );
-        } catch (error) {
-          console.error("Error deleting all assets:", error);
-          showMessage(
-            "Failed to delete all assets. Check console for details.",
-            "error"
-          );
-        } finally {
-          deleteButton.disabled = false;
-          deleteButton.innerHTML =
-            '<i data-lucide="x-circle" class="w-5 h-5 mr-2"></i> Delete All Assets';
-          lucide.createIcons();
-        }
-      };
-
-      // --- Modal Control (exposed globally for HTML) ---
-
-      /** Registration Modal Controls */
-      window.openRegistrationModal = function () {
-        document.getElementById("registrationModal").style.display = "flex";
-      };
-
-      window.closeRegistrationModal = function () {
-        document.getElementById("registrationModal").style.display = "none";
-        document.getElementById("rfidInput").focus();
-      };
-
-      /** Details Modal Controls */
-      window.viewAssetDetails = function (asset) {
-        document.getElementById("detailsRfidTag").value = asset.rfidTag;
-        document.getElementById("detailsName").value = asset.name;
-        document.getElementById("detailsCurrentLocation").textContent =
-          asset.location;
-        document.getElementById("detailsLastScan").textContent =
-          formatTimestamp(asset.lastScanTime);
-
-        document.getElementById("detailsModal").style.display = "flex";
-      };
-
-      window.closeDetailsModal = function () {
-        document.getElementById("detailsModal").style.display = "none";
-        document.getElementById("rfidInput").focus();
-
-        // FIX: If the bulk report was visible when the modal opened, re-show it.
-        if (isBulkReportVisible) {
-          document
-            .getElementById("bulkResultsContainer")
-            .classList.remove("hidden");
-          document.getElementById("primaryAssetList").classList.add("hidden");
-        }
-      };
-
-      /**
-       * Hides the bulk results and shows the primary asset list.
-       */
-      window.clearBulkResults = function () {
-        document.getElementById("bulkResultsContainer").classList.add("hidden");
-        document.getElementById("primaryAssetList").classList.remove("hidden");
-        isBulkReportVisible = false; // Clear flag
-      };
-
-      /**
-       * Initiates registration from the bulk scan report.
-       */
-      window.prepareRegistration = function (rfidTag) {
-        window.clearBulkResults(); // Go back to main view (which will be the primary list after clearing the report)
-        document.getElementById("regRfidTag").value = rfidTag;
-        document.getElementById("regInitialLocation").value =
-          "New Asset Registration";
-        document.getElementById("regName").value = "";
-        window.openRegistrationModal();
-        showMessage(`Registering new tag ${rfidTag}.`, "error");
-      };
-
-      /**
-       * Fetches a single asset and opens the details modal.
-       * Used when clicking Details/Edit in the Bulk Scan Results table.
-       */
-      window.viewAssetDetailsByTag = async function (rfidTag) {
-        try {
-          const assetDoc = await getDoc(doc(getAssetsCollectionRef(), rfidTag));
-          if (assetDoc.exists()) {
-            // Check if the bulk report is currently visible BEFORE opening the modal
-            if (
-              !document
-                .getElementById("bulkResultsContainer")
-                .classList.contains("hidden")
-            ) {
-              isBulkReportVisible = true;
-            }
-            window.viewAssetDetails(assetDoc.data());
-          } else {
-            showMessage(
-              `Error: Asset ${rfidTag} not found in database.`,
-              "error"
-            );
-          }
-        } catch (error) {
-          console.error("Error fetching single asset:", error);
-          showMessage("Failed to load asset details.", "error");
-        }
-      };
-
-      // --- DOM Ready Event Listener for Enter Key and Initial Focus ---
-      document.addEventListener("DOMContentLoaded", () => {
-        const rfidInput = document.getElementById("rfidInput");
-        if (rfidInput) {
-          rfidInput.focus();
-        }
-        lucide.createIcons();
-      });
-
-      // --- Authentication & Real-time Data Setup ---
-
-      if (typeof auth !== "undefined") {
-        onAuthStateChanged(auth, async (user) => {
-          const rfidInputEl = document.getElementById("rfidInput");
-          const scanButton = document.getElementById("scanButton");
-
-          if (user) {
-            userId = user.uid;
-            isAuthReady = true;
-
-            // 1. Enable UI elements
-            rfidInputEl.disabled = false;
-            rfidInputEl.placeholder =
-              "Scan or paste multiple IDs separated by spaces or new lines...";
-            rfidInputEl.classList.remove("bg-gray-100");
-            rfidInputEl.focus();
-
-            scanButton.disabled = false;
-            scanButton.classList.replace("bg-indigo-400", "bg-indigo-600");
-            scanButton.classList.replace(
-              "cursor-not-allowed",
-              "hover:bg-indigo-700"
-            );
-            scanButton.innerHTML =
-              '<i data-lucide="list-checks" class="w-5 h-5 mr-2"></i> Process Scan';
+                tbody.appendChild(tr);
+            });
+
+            container.classList.remove('hidden');
+            document.getElementById('primaryAssetList').classList.add('hidden'); // Hide primary list
+            isBulkReportVisible = true; // Set flag
             lucide.createIcons();
-
-            document.getElementById("user-id").textContent = userId;
-            document.getElementById("initialLoadingMessage").innerHTML =
-              "Fetching real-time data...";
-
-            // 2. Set up real-time listener (primary data stream)
-            const q = query(getAssetsCollectionRef());
-            onSnapshot(
-              q,
-              (querySnapshot) => {
-                assets = [];
-                querySnapshot.forEach((doc) => {
-                  assets.push(doc.data());
-                });
-                document.getElementById("initialLoadingMessage").style.display =
-                  "none";
-                renderAssets();
-              },
-              (error) => {
-                console.error("Error fetching assets:", error);
-                document.getElementById(
-                  "initialLoadingMessage"
-                ).innerHTML = `Error: Failed to load data (${error.code}).`;
-              }
-            );
-          } else {
-            isAuthReady = false;
-            userId = null;
-            document.getElementById("user-id").textContent = "Not signed in";
-          }
-        });
-      }
-
-      /**
-       * Handles Firebase sign-in using the provided custom token or anonymously.
-       */
-      async function handleSignIn() {
-        try {
-          if (initialAuthToken && !isRunningLocally) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            await signInAnonymously(auth);
-          }
-        } catch (error) {
-          console.error("Firebase Auth Error:", error);
-          document.getElementById(
-            "initialLoadingMessage"
-          ).innerHTML = `Authentication Failed: ${error.message}`;
-          document.getElementById("user-id").textContent = "Auth Failed";
         }
-      }
+
+        /**
+         * Hides the bulk results and shows the primary asset list.
+         */
+        window.clearBulkResults = function() {
+            document.getElementById('bulkResultsContainer').classList.add('hidden');
+            document.getElementById('primaryAssetList').classList.remove('hidden');
+            isBulkReportVisible = false; // Clear flag
+        }
+
+        // --- Core Application Logic (exposed globally for HTML) ---
+
+        /**
+         * Loads sample data (4 pre-defined assets) into Firestore.
+         */
+        window.seedSampleData = async function() {
+            if (!isAuthReady) {
+                showMessage("Authentication not ready. Cannot seed data. Please wait for the User ID to appear.", 'error');
+                return;
+            }
+            const seedButton = document.getElementById('seedButton');
+            seedButton.disabled = true;
+            seedButton.innerHTML = '<div class="spinner mr-2"></div> Seeding...';
+
+            try {
+                const batchOperations = [];
+                const assetCollection = getAssetsCollectionRef();
+                
+                // Use setDoc for each asset, ensuring the RFID tag is the document ID
+                SAMPLE_ASSETS.forEach(asset => {
+                    const docRef = doc(assetCollection, asset.rfidTag);
+                    // We remove the user ID from the data payload as it's not needed for public data
+                    const { userId, ...assetData } = { ...asset, userId: userId };
+                    batchOperations.push(setDoc(docRef, assetData));
+                });
+                
+                await Promise.all(batchOperations);
+                
+                await forceTableUpdate();
+
+                showMessage(`Successfully added ${SAMPLE_ASSETS.length} sample assets!`, 'success');
+
+            } catch (error) {
+                console.error("FIREBASE WRITE HANG/ERROR (Seeding): Ensure Security Rules allow authenticated writes.", error); 
+                showMessage("Failed to load sample data. See console for 'FIREBASE WRITE HANG/ERROR'.", 'error');
+            } finally {
+                seedButton.disabled = false;
+                seedButton.innerHTML = '<i data-lucide="database" class="w-5 h-5 mr-2"></i> Load Sample Data';
+                lucide.createIcons();
+            }
+        }
+
+        /**
+         * Handles bulk processing of IDs from the text area.
+         */
+        window.processBulkScan = async function() {
+            if (!isAuthReady) {
+                showMessage("Authentication not ready. Please wait.", 'error');
+                return;
+            }
+            const rfidInputEl = document.getElementById('rfidInput');
+            const rawInput = rfidInputEl.value;
+            const selectedLocation = document.getElementById('scanLocation').value;
+
+            if (!rawInput.trim()) {
+                showMessage("Input box is empty. Please scan or paste IDs.", 'error');
+                return;
+            }
+            
+            // 1. Clean and split the input into unique Tag IDs (Handles spaces, newlines, and commas)
+            const rfidTags = rawInput
+                .split(/[\s,]+/) // Split by space or comma
+                .map(tag => tag.trim().toUpperCase())
+                .filter((tag, index, self) => tag && self.indexOf(tag) === index); // Filter empty and ensure uniqueness
+
+            if (rfidTags.length === 0) {
+                showMessage("No valid, unique tag IDs found in input.", 'error');
+                return;
+            }
+
+            const scanButton = document.getElementById('scanButton');
+            scanButton.disabled = true;
+            scanButton.innerHTML = `<div class="spinner mr-2"></div> Processing ${rfidTags.length} Tags...`;
+            
+            const results = [];
+            const writeOperations = [];
+            let updateCount = 0;
+            
+            try {
+                const assetCollection = getAssetsCollectionRef();
+                const now = Date.now();
+                
+                const fetchPromises = rfidTags.map(tag => getDoc(doc(assetCollection, tag)));
+                const docSnapshots = await Promise.all(fetchPromises);
+
+                docSnapshots.forEach((docSnap, index) => {
+                    const rfidTag = rfidTags[index];
+                    const existingAsset = docSnap.exists() ? docSnap.data() : null;
+                    
+                    if (existingAsset) {
+                        const currentAssetLocation = existingAsset.location;
+                        
+                        // Check if a location update is requested
+                        if (selectedLocation !== 'No Update Selected' && selectedLocation !== currentAssetLocation) {
+                            // Perform Update (Movement)
+                            writeOperations.push(updateDoc(doc(assetCollection, rfidTag), {
+                                location: selectedLocation,
+                                lastScanTime: now
+                            }));
+                            results.push({
+                                rfidTag, 
+                                name: existingAsset.name, 
+                                action: 'Moved', 
+                                location: selectedLocation
+                            });
+                            updateCount++;
+                        } else {
+                            // Lookup Only
+                            results.push({
+                                rfidTag, 
+                                name: existingAsset.name, 
+                                action: 'Found', 
+                                location: existingAsset.location // Current Location
+                            });
+                        }
+                    } else {
+                        // New Asset (Not Found)
+                        results.push({
+                            rfidTag, 
+                            name: null, 
+                            action: 'New', 
+                            location: 'Unregistered'
+                        });
+                    }
+                });
+                
+                // Execute all promised updates/moves
+                await Promise.all(writeOperations);
+
+                // RENDER RESULTS INLINE
+                renderBulkResultsTable(results, updateCount, rfidTags.length);
+                
+                // If any write occurred, force the main table to update
+                if (updateCount > 0) {
+                    await forceTableUpdate();
+                }
+
+                showMessage(`Bulk scan complete. Processed ${rfidTags.length} IDs. ${updateCount} assets moved.`, 'success');
+
+                // Clear input field only after successful display
+                rfidInputEl.value = ''; 
+                document.getElementById('scanLocation').value = 'No Update Selected';
+
+            } catch (error) {
+                console.error("Error processing bulk scan:", error);
+                showMessage(`Error during bulk scan: ${error.message}`, 'error');
+            } finally {
+                scanButton.disabled = false;
+                scanButton.innerHTML = '<i data-lucide="list-checks" class="w-5 h-5 mr-2"></i> Process Scan';
+                lucide.createIcons();
+            }
+        }
+
+        /**
+         * Initiates registration from the bulk scan report.
+         */
+        window.prepareRegistration = function(rfidTag) {
+            window.clearBulkResults(); // Go back to main view (which will be the primary list after clearing the report)
+            document.getElementById('regRfidTag').value = rfidTag;
+            document.getElementById('regInitialLocation').value = 'New Asset Registration';
+            document.getElementById('regName').value = ''; 
+            window.openRegistrationModal();
+            showMessage(`Registering new tag ${rfidTag}.`, 'error');
+        }
+
+        /**
+         * Fetches a single asset and opens the details modal.
+         * Used when clicking Details/Edit in the Bulk Scan Results table.
+         */
+        window.viewAssetDetailsByTag = async function(rfidTag) {
+            try {
+                const assetDoc = await getDoc(doc(getAssetsCollectionRef(), rfidTag));
+                if (assetDoc.exists()) {
+                    // Check if the bulk report is currently visible BEFORE opening the modal
+                    if (!document.getElementById('bulkResultsContainer').classList.contains('hidden')) {
+                         isBulkReportVisible = true;
+                    }
+                    window.viewAssetDetails(assetDoc.data());
+                } else {
+                    showMessage(`Error: Asset ${rfidTag} not found in database.`, 'error');
+                }
+            } catch (error) {
+                console.error("Error fetching single asset:", error);
+                showMessage("Failed to load asset details.", 'error');
+            }
+        }
+
+
+        /**
+         * Registers a new asset after a scan and closes the modal.
+         */
+        window.registerAsset = async function() {
+            const rfidInputEl = document.getElementById('rfidInput'); 
+            const rfidTag = document.getElementById('regRfidTag').value.trim().toUpperCase();
+            const name = document.getElementById('regName').value.trim();
+            const location = document.getElementById('regInitialLocation').value;
+            const currentTime = Date.now();
+
+            if (!rfidTag || !name || !location) {
+                showMessage("All registration fields are required.", 'error');
+                return;
+            }
+
+            const submitButton = document.getElementById('registerSubmitButton');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<div class="spinner mr-2"></div> Registering...';
+
+            try {
+                // Use setDoc to create the document with the RFID Tag as the Document ID
+                const docRef = doc(getAssetsCollectionRef(), rfidTag);
+                await setDoc(docRef, {
+                    rfidTag: rfidTag,
+                    name: name,
+                    location: location,
+                    status: 'Registered', 
+                    lastScanTime: currentTime,
+                    // IMPORTANT: We no longer store userId here, as the data is public.
+                });
+                
+                await forceTableUpdate();
+
+                showMessage(`Asset "${name}" (${rfidTag}) successfully registered!`, 'success');
+                rfidInputEl.value = ''; 
+                rfidInputEl.focus(); 
+                window.closeRegistrationModal();
+            } catch (error) {
+                console.error("Error registering asset:", error);
+                showMessage("Failed to register asset.", 'error');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Register Asset';
+            }
+        }
+        
+        /**
+         * Saves the edited asset name/details to Firestore (Fulfills user request to "change the values").
+         */
+        window.saveAssetDetails = async function() {
+            const rfidTag = document.getElementById('detailsRfidTag').value.trim().toUpperCase();
+            const newName = document.getElementById('detailsName').value.trim();
+            
+            if (!rfidTag || !newName) {
+                showMessage("Asset Name is required.", 'error');
+                return;
+            }
+
+            const saveButton = document.getElementById('saveDetailsButton');
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<div class="spinner mr-2"></div> Saving...';
+
+            try {
+                const assetDocRef = doc(getAssetsCollectionRef(), rfidTag);
+                
+                await updateDoc(assetDocRef, {
+                    name: newName,
+                    // Note: Location update is handled by the main scan logic, not here.
+                });
+                
+                await forceTableUpdate();
+
+                showMessage(`Asset details for ${rfidTag} updated to "${newName}".`, 'success');
+                window.closeDetailsModal();
+            } catch (error) {
+                console.error("FIREBASE WRITE HANG/ERROR (Save Details): Ensure Security Rules allow authenticated writes.", error); 
+                showMessage("Failed to save asset details. See console for 'FIREBASE WRITE HANG/ERROR'.", 'error');
+            } finally {
+                saveButton.disabled = false;
+                saveButton.innerHTML = 'Save Changes';
+            }
+        }
+
+
+        /**
+         * Deletes an asset by its RFID tag.
+         */
+        window.deleteAsset = async function(rfidTag) {
+            if (!isAuthReady) return;
+            
+            if (!confirm(`Are you sure you want to permanently delete asset with Tag ID: ${rfidTag}?`)) {
+                return;
+            }
+
+            try {
+                await deleteDoc(doc(getAssetsCollectionRef(), rfidTag));
+                
+                await forceTableUpdate();
+                
+                showMessage(`Asset ${rfidTag} successfully deleted.`, 'success');
+            } catch (error) {
+                console.error("Error deleting asset:", error);
+                showMessage("Failed to delete asset.", 'error');
+            }
+        }
+
+        /**
+         * Deletes ALL assets in the user's collection.
+         */
+        window.deleteAllAssets = async function() {
+            if (!isAuthReady) {
+                showMessage("Authentication not ready. Cannot delete data.", 'error');
+                return;
+            }
+
+            if (!confirm("WARNING: This will permanently delete ALL assets in your tracking list. Are you absolutely sure you want to continue?")) {
+                return;
+            }
+
+            const deleteButton = document.getElementById('deleteAllButton');
+            deleteButton.disabled = true;
+            deleteButton.innerHTML = '<div class="spinner mr-2"></div> Deleting All...';
+
+            try {
+                const assetCollection = getAssetsCollectionRef();
+                const querySnapshot = await getDocs(query(assetCollection));
+                
+                if (querySnapshot.empty) {
+                    showMessage("No assets found to delete.", 'success');
+                    return;
+                }
+
+                const deleteOperations = [];
+                querySnapshot.forEach((doc) => {
+                    deleteOperations.push(deleteDoc(doc.ref));
+                });
+
+                await Promise.all(deleteOperations);
+                
+                await forceTableUpdate(); // Clears the table
+
+                showMessage(`Successfully deleted ${deleteOperations.length} assets. Your tracking list is now empty.`, 'success');
+
+            } catch (error) {
+                console.error("Error deleting all assets:", error);
+                showMessage("Failed to delete all assets. Check console for details.", 'error');
+            } finally {
+                deleteButton.disabled = false;
+                deleteButton.innerHTML = '<i data-lucide="x-circle" class="w-5 h-5 mr-2"></i> Delete All Assets';
+                lucide.createIcons();
+            }
+        }
+
+
+        // --- Modal Control (exposed globally for HTML) ---
+        
+        /** Registration Modal Controls */
+        window.openRegistrationModal = function() {
+            document.getElementById('registrationModal').style.display = 'flex';
+        }
+
+        window.closeRegistrationModal = function() {
+            document.getElementById('registrationModal').style.display = 'none';
+            document.getElementById('rfidInput').focus();
+        }
+        
+        /** Details Modal Controls */
+        window.viewAssetDetails = function(asset) {
+            document.getElementById('detailsRfidTag').value = asset.rfidTag;
+            document.getElementById('detailsName').value = asset.name;
+            document.getElementById('detailsCurrentLocation').textContent = asset.location;
+            document.getElementById('detailsLastScan').textContent = formatTimestamp(asset.lastScanTime);
+
+            document.getElementById('detailsModal').style.display = 'flex';
+        }
+        
+        window.closeDetailsModal = function() {
+            document.getElementById('detailsModal').style.display = 'none';
+            document.getElementById('rfidInput').focus();
+            
+            // FIX: If the bulk report was visible when the modal opened, re-show it.
+            if (isBulkReportVisible) {
+                document.getElementById('bulkResultsContainer').classList.remove('hidden');
+                document.getElementById('primaryAssetList').classList.add('hidden');
+            }
+        }
+
+        /**
+         * Hides the bulk results and shows the primary asset list.
+         */
+        window.clearBulkResults = function() {
+            document.getElementById('bulkResultsContainer').classList.add('hidden');
+            document.getElementById('primaryAssetList').classList.remove('hidden');
+            isBulkReportVisible = false; // Clear flag
+        }
+
+        /**
+         * Initiates registration from the bulk scan report.
+         */
+        window.prepareRegistration = function(rfidTag) {
+            window.clearBulkResults(); // Go back to main view (which will be the primary list after clearing the report)
+            document.getElementById('regRfidTag').value = rfidTag;
+            document.getElementById('regInitialLocation').value = 'New Asset Registration';
+            document.getElementById('regName').value = ''; 
+            window.openRegistrationModal();
+            showMessage(`Registering new tag ${rfidTag}.`, 'error');
+        }
+
+        /**
+         * Fetches a single asset and opens the details modal.
+         * Used when clicking Details/Edit in the Bulk Scan Results table.
+         */
+        window.viewAssetDetailsByTag = async function(rfidTag) {
+            try {
+                const assetDoc = await getDoc(doc(getAssetsCollectionRef(), rfidTag));
+                if (assetDoc.exists()) {
+                    // Check if the bulk report is currently visible BEFORE opening the modal
+                    if (!document.getElementById('bulkResultsContainer').classList.contains('hidden')) {
+                         isBulkReportVisible = true;
+                    }
+                    window.viewAssetDetails(assetDoc.data());
+                } else {
+                    showMessage(`Error: Asset ${rfidTag} not found in database.`, 'error');
+                }
+            } catch (error) {
+                console.error("Error fetching single asset:", error);
+                showMessage("Failed to load asset details.", 'error');
+            }
+        }
+
+
+        // --- DOM Ready Event Listener for Enter Key and Initial Focus ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const rfidInput = document.getElementById('rfidInput');
+            if (rfidInput) {
+                rfidInput.focus();
+            }
+            lucide.createIcons();
+        });
+
+
+        // --- Authentication & Real-time Data Setup ---
+
+        if (typeof auth !== 'undefined') {
+            onAuthStateChanged(auth, async (user) => {
+                const rfidInputEl = document.getElementById('rfidInput');
+                const scanButton = document.getElementById('scanButton');
+                
+                if (user) {
+                    userId = user.uid;
+                    isAuthReady = true;
+
+                    // 1. Enable UI elements
+                    rfidInputEl.disabled = false;
+                    rfidInputEl.placeholder = 'Scan or paste multiple IDs separated by spaces or new lines...';
+                    rfidInputEl.classList.remove('bg-gray-100');
+                    rfidInputEl.focus(); 
+
+                    scanButton.disabled = false;
+                    scanButton.classList.replace('bg-indigo-400', 'bg-indigo-600');
+                    scanButton.classList.replace('cursor-not-allowed', 'hover:bg-indigo-700');
+                    scanButton.innerHTML = '<i data-lucide="list-checks" class="w-5 h-5 mr-2"></i> Process Scan';
+                    lucide.createIcons();
+                    
+                    document.getElementById('user-id').textContent = userId;
+                    document.getElementById('initialLoadingMessage').innerHTML = 'Fetching real-time data...';
+
+                    // 2. Set up real-time listener (primary data stream)
+                    const q = query(getAssetsCollectionRef());
+                    onSnapshot(q, (querySnapshot) => {
+                        assets = [];
+                        querySnapshot.forEach((doc) => {
+                            assets.push(doc.data());
+                        });
+                        document.getElementById('initialLoadingMessage').style.display = 'none';
+                        renderAssets();
+                    }, (error) => {
+                        console.error("Error fetching assets:", error);
+                        document.getElementById('initialLoadingMessage').innerHTML = `Error: Failed to load data (${error.code}).`;
+                    });
+
+                } else {
+                    isAuthReady = false;
+                    userId = null;
+                    document.getElementById('user-id').textContent = 'Not signed in';
+                }
+            });
+        }
+        
+
+        /**
+         * Handles Firebase sign-in using the provided custom token or anonymously.
+         */
+        async function handleSignIn() {
+            try {
+                if (initialAuthToken && !isRunningLocally) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Auth Error:", error);
+                document.getElementById('initialLoadingMessage').innerHTML = `Authentication Failed: ${error.message}`;
+                document.getElementById('user-id').textContent = 'Auth Failed'; 
+            }
+        }
+        
     </script>
-  </body>
+</body>
 </html>
